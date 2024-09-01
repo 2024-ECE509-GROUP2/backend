@@ -10,11 +10,23 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+import dj_database_url
+from environ import Env
+
+
+env = Env()
+
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+Env.read_env(os.path.join(BASE_DIR, '.env'))
+
+ENVIRONMENT = env('ENVIRONMENT', default='production')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
@@ -22,11 +34,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-hwe!+da&e6^ise0kp54nqr%e@-9!=pk663!@0m@9)1%*948y(='
 
+ZOOM_BASE_URL = 'https://api.zoom.us/v2'
+ZOOM_ACCOUNT_ID = env('ZOOM_ACCOUNT_ID')
+ZOOM_CLIENT_KEY = env('ZOOM_CLIENT_KEY')
+ZOOM_CLIENT_SECRET = env('ZOOM_CLIENT_SECRET')
+ZOOM_MEETING_CLIENT_KEY = env('ZOOM_MEETING_CLIENT_KEY')
+ZOOM_MEETING_CLIENT_SECRET = env('ZOOM_MEETING_CLIENT_SECRET')
+
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+if(ENVIRONMENT == 'development'):
+    DEBUG = True
+else:
+    DEBUG = False
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -38,10 +59,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'api',
+    'zoom_endpoint',
     'rest_framework'
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -50,6 +73,10 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+CORS_ORIGIN_ALLOW_ALL = True
+
+CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1', 'https://127.0.0.1', 'http://localhost']
 
 ROOT_URLCONF = 'backend.urls'
 
@@ -74,13 +101,18 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+if(ENVIRONMENT == 'development'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': dj_database_url.parse(env('DATABASE_URL'))
+    }
+
 
 
 # Password validation

@@ -8,6 +8,51 @@ from api.serializers import *
 
 #######################################################
 #
+# School Calender
+#
+#######################################################
+@csrf_exempt
+def calender_list(request):
+    if request.method == 'GET':
+        calender = SchoolCalender.objects.all()
+        serializer = CalenderBigSerializer(calender, many=True)
+        return JsonResponse(serializer.data, safe=False)
+
+    elif request.method == 'POST':
+        data = JSONParser().parse(request)
+        serializer = CalenderSerializer(data=data)
+
+        if serializer.is_valid():
+            serializer.save()
+            return JsonResponse(serializer.data, status=201)
+        return JsonResponse(serializer.errors, status=400)
+
+@csrf_exempt
+def calender_details(request, pk):
+    
+    try:
+        calender = SchoolCalender.objects.get(programme=pk)
+    except SchoolCalender.DoesNotExist:
+        return JsonResponse({}, status=404)
+
+    if request.method == 'GET':
+        serializer = CalenderBigSerializer(calender)
+        return JsonResponse(serializer.data)
+
+    elif request.method == 'PUT':
+        data = JSONParser().parse(request)
+        serializer = CalenderSerializer(calender, data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return JsonResponse(serializer.data, status=201)
+        return JsonResponse(serializer.errors, status=400)
+
+    elif request.method == 'DELETE':
+        calender.delete()
+        return JsonResponse({'message': 'Something was deleted'}, status=204)
+
+#######################################################
+#
 # Faculty
 #
 #######################################################
@@ -45,12 +90,36 @@ def faculty_details(request, pk):
         serializer = FacultySerializer(faculty, data=data)
         if serializer.is_valid():
             serializer.save()
+            return JsonResponse(serializer.data, status=201)
+        return JsonResponse(serializer.errors, status=400)
+
+    elif request.method == 'DELETE':
+        faculty.delete()
+        return JsonResponse(status=204)
+
+@csrf_exempt
+def faculty_with_departments(request, pk):
+    
+    try:
+        faculty = Faculty.objects.get(uuid=pk)
+    except Faculty.DoesNotExist:
+        return HttpResponse(status=404)
+
+    if request.method == 'GET':
+        serializer = FacultyWithDepartmentSerializer(faculty)
+        return JsonResponse(serializer.data)
+
+    elif request.method == 'PUT':
+        data = JSONParser().parse(request)
+        serializer = FacultySerializer(faculty, data=data)
+        if serializer.is_valid():
+            serializer.save()
             return JsonResponse(serializer.data)
         return JsonResponse(serializer.errors, status=400)
 
     elif request.method == 'DELETE':
         faculty.delete()
-        return HttpResponse(status=204)
+        return JsonResponse({'message' : 'Something was deleted'}, status=204)
 
 #######################################################
 #
@@ -80,7 +149,7 @@ def department_details(request, pk):
     try:
         department = Department.objects.get(uuid=pk)
     except Department.DoesNotExist:
-        return HttpResponse(status=404)
+        return JsonResponse({'message' : 'not found'},status=404)
 
     if request.method == 'GET':
         serializer = DepartmentSerializer(department)
@@ -96,12 +165,11 @@ def department_details(request, pk):
 
     elif request.method == 'DELETE':
         department.delete()
-        return HttpResponse(status=204)
+        return JsonResponse({'message' : 'Something was deleted'}, status=204)
 
 #######################################################
 #
 # Session
-#
 #
 #######################################################
 @csrf_exempt
@@ -130,7 +198,7 @@ def session_details(request, pk):
         return HttpResponse(status=404)
 
     if request.method == 'GET':
-        serializer = SessionSerializer(session)
+        serializer = SessionBigSerializer(session)
         return JsonResponse(serializer.data)
 
     elif request.method == 'PUT':
@@ -145,10 +213,26 @@ def session_details(request, pk):
         session.delete()
         return HttpResponse(status=204)
 
+@csrf_exempt
+def session_filter(request, programme):
+    
+    if request.method == 'GET':
+        sessions = Session.objects.all().filter(programme=programme)
+        serializer = SessionSerializer(sessions, many=True)
+        return JsonResponse(serializer.data, safe=False)
+
+    elif request.method == 'POST':
+        data = JSONParser().parse(request)
+        serializer = SessionSerializer(data=data)
+
+        if serializer.is_valid():
+            serializer.save()
+            return JsonResponse(serializer.data, status=201)
+        return JsonResponse(serializer.errors, status=400)
 
 #######################################################
 #
-# Sesmester
+# Semester
 #
 #######################################################
 @csrf_exempt
@@ -192,6 +276,23 @@ def semester_details(request, pk):
         semester.delete()
         return HttpResponse(status=204)
 
+@csrf_exempt
+def semester_filter(request, session):
+    
+    if request.method == 'GET':
+        semesters = Semester.objects.all().filter(session=session)
+        serializer = SemesterSerializer(semesters, many=True)
+        return JsonResponse(serializer.data, safe=False)
+
+    elif request.method == 'POST':
+        data = JSONParser().parse(request)
+        serializer = SemesterSerializer(data=data)
+
+        if serializer.is_valid():
+            serializer.save()
+            return JsonResponse(serializer.data, status=201)
+        return JsonResponse(serializer.errors, status=400)
+    
 #######################################################
 #
 # Programme
@@ -219,11 +320,12 @@ def programme_details(request, pk):
     
     try:
         programme = Programme.objects.get(uuid=pk)
-    except Semester.DoesNotExist:
+    # fixed typo 'Semester' to 'Programme'
+    except Programme.DoesNotExist:
         return HttpResponse(status=404)
 
     if request.method == 'GET':
-        serializer = ProgrammeSerializer(programme)
+        serializer = ProgrammeBigSerializer(programme)
         return JsonResponse(serializer.data)
 
     elif request.method == 'PUT':
@@ -237,15 +339,6 @@ def programme_details(request, pk):
     elif request.method == 'DELETE':
         programme.delete()
         return HttpResponse(status=204)
-
-@csrf_exempt
-def user_list(request):
-    
-    if request.method == 'GET':
-        users = User.objects.all()
-        serializer = UserSerializer(users, many=True)
-        return JsonResponse(serializer.data, safe=False)
-
 
 #######################################################
 #
@@ -264,17 +357,24 @@ def student_list(request):
         data = JSONParser().parse(request)
 
         # create a user first
-        user = User(first_name=data["first_name"],middle_name=data["middle_name"], last_name=data["last_name"], user_type=UserType.STUDENT,)
+        user = User(first_name=data["first_name"],middle_name=data["middle_name"], last_name=data["last_name"], user_type=UserType.STUDENT, email=data['email'])
         user.save()
 
         # update student uuid with 
         data["uuid"] = user.uuid
+        print(data)
+
+        count = Student.objects.all().filter(department=data['department'])
+        print(count)
 
         serializer = StudentSerializer(data=data)
 
         if serializer.is_valid():
             serializer.save()
             return JsonResponse(serializer.data, status=201)
+
+        # delete created user if student creation failed
+        user.delete()
         return JsonResponse(serializer.errors, status=400)
 
 @csrf_exempt
@@ -288,6 +388,47 @@ def student_details(request, pk):
     if request.method == 'GET':
         serializer = StudentDetailsSerializer(student)
         return JsonResponse(serializer.data)
+
+    elif request.method == 'PUT':
+        data = JSONParser().parse(request)
+        serializer = StudentSerializer(student, data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return JsonResponse(serializer.data)
+        return JsonResponse(serializer.errors, status=400)
+
+    elif request.method == 'DELETE':
+        student.delete()
+        return HttpResponse(status=204)
+
+@csrf_exempt
+def student_courses(request, pk, programme, semester):
+    
+    try:
+        student = Student.objects.get(uuid=pk)
+        semester = Semester.objects.get(uuid=semester)
+        programme = Programme.objects.get(uuid=programme)
+        course_cycle = CourseCycle.objects.all().filter(semster=semester, programme=programme)
+    except Student.DoesNotExist:
+        return JsonResponse({'message': "No Such Student Exits"}, status=404)
+    except Semester.DoesNotExist:
+        return JsonResponse({'message': "No Such Semester Exits"}, status=404)
+    except Programme.DoesNotExist:
+        return JsonResponse({'message': "No Such Programme Exits"}, status=404)
+
+    if request.method == 'GET':
+
+        #First get all courses student has enrolled in 
+        allEnrollments = StudentEnrollment.objects.all().filter(student=pk)
+
+        #Get all courses  for current semester and programme
+        cycles = [cycle['course_cycle_id'] for cycle in allEnrollments.values()]
+
+        #reference if the
+        courses = [Course.objects.get(uuid=cycle['course_id']) for cycle in course_cycle.values() if cycle['uuid'] in cycles]
+
+        serializer = CourseSerializer(courses, many=True)
+        return JsonResponse(serializer.data, safe=False)
 
     elif request.method == 'PUT':
         data = JSONParser().parse(request)
@@ -354,6 +495,45 @@ def staff_details(request, pk):
     elif request.method == 'DELETE':
         staff.delete()
         return HttpResponse(status=204)
+    
+#######################################################
+#
+# User Profiles
+#
+#######################################################
+@csrf_exempt
+def profile_list(request):
+    
+    if request.method == 'GET':
+        users = User.objects.all()
+        serializer = UserSerializer(users, many=True)
+        return JsonResponse(serializer.data, safe=False)
+
+
+@csrf_exempt
+def profile_details(request, pk):
+    
+    try:
+        user = User.objects.get(uuid=pk)
+    except User.DoesNotExist:
+        return HttpResponse(status=404)
+
+    if request.method == 'GET':
+        serializer = UserSerializer(user)
+        return JsonResponse(serializer.data, status=200)
+
+    elif request.method == 'PUT':
+        data = JSONParser().parse(request)
+
+        serializer = UserSerializer(user, data=data)
+
+        if serializer.is_valid():
+            serializer.save()
+            return JsonResponse(serializer.data)
+        return JsonResponse(serializer.errors, status=400)
+    
+    elif request.method == 'DELETE':
+        return JsonResponse({'message': 'used wrong request'} ,status=403)
 
 #######################################################
 #
@@ -401,6 +581,7 @@ def roles_details(request, pk):
     elif request.method == 'DELETE':
         role.delete()
         return HttpResponse(status=204)
+    
 
 #######################################################
 #
@@ -448,6 +629,42 @@ def course_details(request, pk):
     elif request.method == 'DELETE':
         course.delete()
         return HttpResponse(status=204)
+    
+#Added a view to get all the cycles for a course
+@csrf_exempt
+def course_cycles(request, pk):
+    
+    try:
+        course_cycle = CourseCycle.objects.get(course=pk)
+    except CourseCycle.DoesNotExist:
+        return HttpResponse(status=404)
+
+    if request.method == 'GET':
+        students = StudentEnrollment.objects.all().filter(course_cycle=course_cycle.uuid)
+        student_uuids = [Student.objects.get(uuid=i['student_id']) for i in students.values()]
+        students = StudentSerializer(student_uuids, many=True).data
+
+        staff = TeacherAssigned.objects.all().filter(course_cycle=course_cycle.uuid)
+        staff_uuids = [Staff.objects.get(uuid=i['staff_id']) for i in staff.values()]
+        staff = StaffSerializer(staff_uuids, many=True).data
+
+        schedule = TimeScheduleAssigned.objects.all().filter(course_cycle=course_cycle.uuid)        
+        schedule = TimeScheduleAssignedSerializer(schedule, many=True).data
+
+        serializer = CourseCycleSerializer(course_cycle, context={'students': students, 'staff': staff, 'schedules':schedule})
+        return JsonResponse(serializer.data)
+
+    elif request.method == 'PUT':
+        data = JSONParser().parse(request)
+        serializer = CourseCycleSerializer(course_cycle, context={'students': [], 'staff': [], 'schedules':[]}, data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return JsonResponse(serializer.data)
+        return JsonResponse(serializer.errors, status=400)
+
+    elif request.method == 'DELETE':
+        course_cycle.delete()
+        return HttpResponse(status=204)
 
 @csrf_exempt
 def course_enrollment(request, pk, semester, programme):
@@ -470,7 +687,7 @@ def course_enrollment(request, pk, semester, programme):
         students = StudentEnrollment.objects.all().filter(course_cycle=course_cycle[0].uuid)
         student_uuids = [Student.objects.get(uuid=i['student_id']) for i in students.values()]
 
-        stdents = StudentSerializer(student_uuids, many=True).data
+        stdents = StudentDetailsSerializer(student_uuids, many=True).data
         serializer = CourseCycleSerializer(course_cycle[0], context={'students': stdents, 'staff': [], 'schedules':[]})
         
         return JsonResponse(serializer.data, safe=False)
@@ -527,8 +744,9 @@ def course_assignment(request, pk, semester, programme):
     
     if request.method == 'GET':
         staff = TeacherAssigned.objects.all().filter(course_cycle=course_cycle[0].uuid)
-        staff_uuids = [Student.objects.get(uuid=i['staff_id']) for i in staff.values()]
-        staff = StaffSerializer(staff_uuids, many=True).data
+        # fixed typo 'Student' to 'Staff'
+        staff_uuids = [Staff.objects.get(uuid=i['staff_id']) for i in staff.values()]
+        staff = TeacherAssignedDetailsSerializer(staff, many=True).data
         serializer = CourseCycleSerializer(course_cycle[0], context={'staff': staff, 'students':[], 'schedules':[]})
         
         return JsonResponse(serializer.data, safe=False)
@@ -627,3 +845,24 @@ def course_schedule(request, pk, semester, programme):
 
 def index(request):
     return HttpResponse("API is Live")
+
+@csrf_exempt
+def login(request):
+
+    if request.method == 'POST':
+        data = JSONParser().parse(request)
+        
+    try:
+        staff = Staff.objects.get(staff_id=data['id'])
+        user = staff.uuid
+    except Staff.DoesNotExist:
+        student = Student.objects.get(student_id=data['id'])
+        user = student.uuid
+    except Student.DoesNotExist:
+        return JsonResponse({'message':'No User Has That ID No.'}, status=404)
+   
+
+    if user != None:
+        serializer = UserSerializer(user)
+        return JsonResponse(serializer.data, status=200)
+    return JsonResponse({'message':'Failed Retreiving User'}, status=404)

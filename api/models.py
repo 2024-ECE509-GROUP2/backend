@@ -3,15 +3,49 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 import uuid
+
+from requests import session
 # Create your models here.
+
+#moved Programme to the top for Session to access it
+
+class Programme(models.Model):
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    programme_label = models.CharField(max_length=60)
+    session_count = models.IntegerField(default=2)
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_modified = models.DateTimeField(auto_now=True)
+
 
 class Session(models.Model):
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    programme = models.ForeignKey(Programme, on_delete=models.PROTECT,)
+    session_code = models.CharField(max_length=60, null=True, unique=True)
     session_label = models.CharField(max_length=60)
     date_start = models.DateTimeField()
     date_end = models.DateTimeField(null=True, default=None)
+    has_started = models.BooleanField(default=False,)
+    has_ended = models.BooleanField(default=False,)
     date_created = models.DateTimeField(auto_now_add=True)
     date_modified = models.DateTimeField(auto_now=True)
+
+class Semester(models.Model):
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    session = models.ForeignKey(Session, on_delete=models.PROTECT)
+    semester_label = models.CharField(max_length=60)
+    semester_count = models.IntegerField()
+    date_start = models.DateTimeField()
+    date_end = models.DateTimeField(null=True, default=None)
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_modified = models.DateTimeField(auto_now=True)    
+
+#now each can point the ongoing session.
+#now each can point to the latest semester
+class SchoolCalender(models.Model):
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    programme = models.ForeignKey(Programme, on_delete=models.PROTECT, )
+    current_semester = models.ForeignKey(Semester, on_delete=models.PROTECT, null=True)
+    current_session = models.ForeignKey(Session, on_delete=models.PROTECT, null=True)
 
 class Faculty(models.Model):
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -28,22 +62,6 @@ class Department(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
     date_modified = models.DateTimeField(auto_now=True)
 
-class Semester(models.Model):
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    session = models.ForeignKey(Session, on_delete=models.PROTECT)
-    semester_label = models.CharField(max_length=60)
-    semester_count = models.IntegerField()
-    date_start = models.DateTimeField()
-    date_end = models.DateTimeField(null=True, default=None)
-    date_created = models.DateTimeField(auto_now_add=True)
-    date_modified = models.DateTimeField(auto_now=True)
-
-class Programme(models.Model):
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    programme_label = models.CharField(max_length=60)
-    date_created = models.DateTimeField(auto_now_add=True)
-    date_modified = models.DateTimeField(auto_now=True)
-
 class UserType(models.TextChoices):
     STUDENT = "student", _("Student")
     STAFF = "staff", _("Staff")
@@ -54,14 +72,15 @@ class User(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     middle_name = models.CharField(max_length=100, null=True)
+    profile_url= models.TextField(null=True)
     email = models.EmailField()
 
 class Student(models.Model):
     uuid = models.OneToOneField(User, primary_key=True, on_delete=models.CASCADE)
-    student_id = models.CharField(max_length=10, null=True)
+    student_id = models.CharField(max_length=10, unique=True, null=True)
     department = models.ForeignKey(Department, on_delete=models.PROTECT, null=True)
     department_joined = models.ForeignKey(Department, on_delete=models.PROTECT, null=True, related_name='+')
-    session_joined = models.ForeignKey(Session, on_delete=models.PROTECT, null=True)
+    session_joined = models.ForeignKey(Session, on_delete=models.PROTECT)
     date_created = models.DateTimeField(auto_now_add=True)
     date_modified = models.DateTimeField(auto_now=True)
 
@@ -74,8 +93,8 @@ class StaffRole(models.Model):
 
 class Staff(models.Model):
     uuid = models.OneToOneField(User, primary_key=True, on_delete=models.CASCADE)
-    staff_id = models.CharField(max_length=10, null=True)
-    role = models.ForeignKey(StaffRole, on_delete=models.SET_NULL, null=True, blank=True)
+    staff_id = models.CharField(max_length=10, unique=True, null=True)
+    roles = models.ManyToManyField(StaffRole)
 
 class Course(models.Model):
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -105,6 +124,7 @@ class StudentEnrollment(models.Model):
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     course_cycle = models.ForeignKey(CourseCycle, on_delete=models.PROTECT)
     student = models.ForeignKey(Student, on_delete=models.PROTECT)
+    approved = models.BooleanField(default=False)
     date_created = models.DateTimeField(auto_now_add=True)
     date_modified = models.DateTimeField(auto_now=True)
 
