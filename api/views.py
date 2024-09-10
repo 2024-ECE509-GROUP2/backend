@@ -1,3 +1,4 @@
+import email
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.parsers import JSONParser
@@ -364,13 +365,23 @@ def student_list(request):
         data["uuid"] = user.uuid
         print(data)
 
-        count = Student.objects.all().filter(department=data['department'])
-        print(count)
+        department = Department.objects.get(uuid=uuid.UUID(data['department']))
+        departmental_code = department.department_code
+        count = department.past_student_count + 1
+        
+        student_id = "u"+departmental_code+"%03d" % count
+
+        data['student_id'] = student_id
+        data['session_joined'] = SchoolCalender.objects.get(programme=data['programme']).current_session.uuid
 
         serializer = StudentSerializer(data=data)
 
         if serializer.is_valid():
             serializer.save()
+
+            # increase the count of students that have been assigned to this department
+            department.past_student_count = count
+            department.save()
             return JsonResponse(serializer.data, status=201)
 
         # delete created user if student creation failed
@@ -452,23 +463,34 @@ def staff_list(request):
     
     if request.method == 'GET':
         staff = Staff.objects.all()
-        serializer = StaffSerializer(staff, many=True)
+        serializer = StaffDetailsSerializer(staff, many=True)
         return JsonResponse(serializer.data, safe=False)
 
     elif request.method == 'POST':
         data = JSONParser().parse(request)
 
         # create a user first
-        user = User(first_name=data["first_name"], middle_name=data["middle_name"], last_name=data["last_name"], user_type=UserType.STAFF,)
+        user = User(first_name=data["first_name"],middle_name=data["middle_name"], last_name=data["last_name"], user_type=UserType.STAFF, email=data['email'])
         user.save()
 
-        # update student uuid with 
+        # update staff uuid with 
         data["uuid"] = user.uuid
 
+        department = Department.objects.get(uuid=uuid.UUID(data['department']))
+        departmental_code = department.department_code
+        count = department.past_staff_count + 1
+        
+        staff_id = "sf"+departmental_code+"%03d" % count
+
+        data['staff_id'] = staff_id
         serializer = StaffSerializer(data=data)
 
         if serializer.is_valid():
             serializer.save()
+
+            # increase the count of staff that have been assigned to this department
+            department.past_staff_count = count
+            department.save()
             return JsonResponse(serializer.data, status=201)
         return JsonResponse(serializer.errors, status=400)
 
@@ -495,6 +517,7 @@ def staff_details(request, pk):
     elif request.method == 'DELETE':
         staff.delete()
         return HttpResponse(status=204)
+
     
 #######################################################
 #
@@ -529,11 +552,11 @@ def profile_details(request, pk):
 
         if serializer.is_valid():
             serializer.save()
-            return JsonResponse(serializer.data)
+            return JsonResponse(serializer.data,)
         return JsonResponse(serializer.errors, status=400)
     
     elif request.method == 'DELETE':
-        return JsonResponse({'message': 'used wrong request'} ,status=403)
+        return JsonResponse({'message': 'Deleted A Profile'} ,status=403)
 
 #######################################################
 #
@@ -856,10 +879,11 @@ def login(request):
         staff = Staff.objects.get(staff_id=data['id'])
         user = staff.uuid
     except Staff.DoesNotExist:
-        student = Student.objects.get(student_id=data['id'])
-        user = student.uuid
-    except Student.DoesNotExist:
-        return JsonResponse({'message':'No User Has That ID No.'}, status=404)
+        try:
+            student = Student.objects.get(student_id=data['id'])
+            user = student.uuid
+        except Student.DoesNotExist:
+            return JsonResponse({'message':'No User Has That ID No.'}, status=400)
    
 
     if user != None:

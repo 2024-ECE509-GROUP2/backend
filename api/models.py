@@ -59,6 +59,8 @@ class Department(models.Model):
     faculty = models.ForeignKey(Faculty, on_delete=models.PROTECT)
     department_name = models.CharField(max_length=256)
     department_code = models.CharField(max_length=10, null=True)
+    past_student_count = models.IntegerField(default=0,)
+    past_staff_count = models.IntegerField(default=0,)
     date_created = models.DateTimeField(auto_now_add=True)
     date_modified = models.DateTimeField(auto_now=True)
 
@@ -77,7 +79,7 @@ class User(models.Model):
 
 class Student(models.Model):
     uuid = models.OneToOneField(User, primary_key=True, on_delete=models.CASCADE)
-    student_id = models.CharField(max_length=10, unique=True, null=True)
+    student_id = models.CharField(max_length=15, unique=True, null=True)
     department = models.ForeignKey(Department, on_delete=models.PROTECT, null=True)
     department_joined = models.ForeignKey(Department, on_delete=models.PROTECT, null=True, related_name='+')
     session_joined = models.ForeignKey(Session, on_delete=models.PROTECT)
@@ -88,12 +90,13 @@ class StaffRole(models.Model):
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     role_label = models.CharField(max_length=60)
     role_description = models.CharField(max_length=256)
-    role_code = models.CharField(max_length=10, null=True)
-    roles = models.BinaryField()
+    is_active = models.BooleanField(default=True)
 
 class Staff(models.Model):
     uuid = models.OneToOneField(User, primary_key=True, on_delete=models.CASCADE)
-    staff_id = models.CharField(max_length=10, unique=True, null=True)
+    staff_id = models.CharField(max_length=15, unique=True, null=True)
+    department = models.ForeignKey(Department, on_delete=models.PROTECT, null=True,)
+    date_joined = models.DateTimeField(auto_now_add=True)
     roles = models.ManyToManyField(StaffRole)
 
 class Course(models.Model):

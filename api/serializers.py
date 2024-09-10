@@ -35,6 +35,7 @@ class StudentDetailsSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(source='uuid.last_name')
     middle_name = serializers.CharField(source='uuid.middle_name')
     email = serializers.CharField(source='uuid.email')
+    profile_url = serializers.CharField(source='uuid.profile_url')
 
     department_name = serializers.CharField(source='department.department_name')
     department_joined_name = serializers.CharField(source='department_joined.department_name')
@@ -45,7 +46,7 @@ class StudentDetailsSerializer(serializers.ModelSerializer):
         read_only_fields = ['uuid']
         fields = ['uuid', 'student_id', 'department', 'department_name', 
         'department_joined', 'department_joined_name', 'session_label','session_joined', 'first_name',
-        'last_name', 'middle_name', 'email']
+        'last_name', 'middle_name', 'email', 'profile_url']
 
 class StaffRoleSerializer(serializers.ModelSerializer):
 
@@ -79,7 +80,7 @@ class StaffSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Staff
-        read_only_fields = ['uuid']
+        read_only_fields = ['roles']
         fields = ['uuid', 'staff_id', 'roles']
 
 class StaffDetailsSerializer(serializers.ModelSerializer):
@@ -88,15 +89,18 @@ class StaffDetailsSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(source='uuid.last_name')
     middle_name = serializers.CharField(source='uuid.middle_name')
     email = serializers.CharField(source='uuid.email')
+    profile_url = serializers.CharField(source='uuid.profile_url')
 
-    roles = serializers.ListField(child= StaffRoleUUIDSerializer(),source='staff.roles.all', )
-    roles_labels = serializers.ListField(child= StaffRoleNameSerializer(),source='staff.roles.all', )
+    # department_name = serializers.CharField(source='department.department_name')
+
+    roles = serializers.ListField(child= StaffRoleUUIDSerializer(),source='roles.all', )
+    roles_labels = serializers.ListField(child= StaffRoleNameSerializer(),source='roles.all', )
     
     class Meta:
         model = Staff
         read_only_fields = ['uuid']
-        fields = ['uuid',  'first_name', 'staff_id', 'roles_labels', 'roles',
-        'last_name', 'middle_name', 'email']
+        fields = ['uuid',  'first_name', 'staff_id',  'roles_labels', 'roles',
+        'last_name', 'middle_name', 'email', 'profile_url']
 
 class FacultySerializer(serializers.ModelSerializer):
 
