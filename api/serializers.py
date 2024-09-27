@@ -14,7 +14,7 @@ class CalenderSerializer(serializers.ModelSerializer):
     class Meta:
         model = SchoolCalender
         read_only_fields = ['uuid']
-        fields = ['uuid', 'programme', 'current_semester', 'current_session']
+        fields = ['uuid', 'programme', 'current_semester',]
 
 class StudentSerializer(serializers.ModelSerializer):
 
@@ -133,9 +133,10 @@ class SemesterSerializer(serializers.ModelSerializer):
         fields = ['uuid', 'session', 'semester_label', 'semester_count', 'date_start', 'date_end']
 
     def get_semester_label(self, obj):
+        
         ordinal = lambda n: "%d%s" % (n,"tsnrhtdd"[(n//10%10!=1)*(n%10<4)*n%10::4])
 
-        return f'{ordinal(obj.semester_count)} Semester'
+        return f'{obj.session.session_label} {ordinal(obj.semester_count)} Semester'
 
 class ProgrammeSerializer(serializers.ModelSerializer):
 
@@ -149,31 +150,25 @@ class CourseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Course
         read_only_fields = ['uuid']
-        fields = ['uuid', 'course_name', 'course_code', 'course_description']
+        fields = ['uuid', 'course_name', 'course_code', 'allowed_departments', 'course_description']
 
-class CourseCycleSerializer(serializers.ModelSerializer):
-
-    students = serializers.JSONField(read_only=True)
-    staff = serializers.JSONField(read_only=True)
-    schedules = serializers.JSONField(read_only=True)
+class CourseCycleDefaultSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CourseCycle
         read_only_fields = ['uuid']
-        fields = ['uuid', 'course', 'semster', 'programme', 'staff', 'students', 'schedules']
+        fields = ['uuid', 'course', 'semster', 'programme']
     
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        if(self.context['students']):
-            representation['students'] = self.context['students']
+class CourseCycleDetailSerializer(serializers.ModelSerializer):
 
-        if(self.context['staff']):
-            representation['staff'] = self.context['staff']
+    course = CourseSerializer()
+    semster = SemesterSerializer()
+    programme = ProgrammeSerializer()
 
-        if(self.context['schedules']):
-            representation['schedules'] = self.context['schedules']
-
-        return representation
+    class Meta:
+        model = CourseCycle
+        read_only_fields = ['uuid']
+        fields = ['uuid', 'course', 'semster', 'programme']
 
 class TeacherAssignedSerializer(serializers.ModelSerializer):
 
@@ -194,14 +189,31 @@ class TeacherAssignedDetailsSerializer(serializers.ModelSerializer):
     class Meta:
         model = TeacherAssigned
         read_only_fields = ['uuid']
-        fields = ['uuid', 'course_cycle', 'staff', 'is_supervisor', 'first_name',  'roles', 'role_labels',
-        'last_name', 'middle_name', 'email']
+        fields = ['uuid', 'course_cycle', 'staff', 'is_supervisor', 'first_name',  
+        'last_name', 'middle_name', 'email', 'roles', 'role_labels',]
 
 class StudentEnrollmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StudentEnrollment
-        fields = ['uuid', 'course_cycle', 'student']
+        fields = ['uuid', 'course_cycle', 'student', 'approved']
+
+class StudentEnrollmentDetailsSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = StudentEnrollment
+        fields = ['uuid', 'course_cycle', 'student', 'approved']
+    
+    def to_representation(self, instance):
+
+        representation = super().to_representation(instance)
+
+        student = Student.objects.get(uuid=representation['student'])
+        student = StudentDetailsSerializer(student)
+
+        representation['student'] = student.data
+
+        return representation
 
 class StudentGradesEarnedSerializer(serializers.ModelSerializer):
 
@@ -291,7 +303,7 @@ class CalenderBigSerializer(serializers.ModelSerializer):
     class Meta:
         model = SchoolCalender
         read_only_fields = ['uuid']
-        fields = ['uuid', 'programme', 'programme_label', 'current_semester', 'current_session']
+        fields = ['uuid', 'programme', 'programme_label', 'current_semester']
 
     def to_representation(self, instance):
 
@@ -299,15 +311,15 @@ class CalenderBigSerializer(serializers.ModelSerializer):
 
         try:
             semester_details = Semester.objects.get(uuid=representation['current_semester'])
+            session_details = Semester.objects.get(uuid=representation['current_semester']).session
+
             semester_details = SemesterSerializer(semester_details)
             representation['semester_details'] = semester_details.data
-        except Semester.DoesNotExist:
-            representation['semester_details'] = None
 
-        try:
-            session_details = Session.objects.get(uuid=representation['current_session'])
             session_details = SessionSerializer(session_details)
             representation['session_details'] = session_details.data
+        except Semester.DoesNotExist:
+            representation['semester_details'] = None
         except Session.DoesNotExist:
             representation['session_details'] = None
 

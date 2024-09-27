@@ -1,5 +1,7 @@
 from django.urls import path
 
+from api.endpoints import course_cycles, courses
+
 from . import views
 
 urlpatterns = [
@@ -7,13 +9,25 @@ urlpatterns = [
     path('calender/add', views.calender_list, name='add_calender'),
     path('calender/edit/<uuid:pk>', views.calender_details, name='edit_calender'),
 
-    path('courses/', views.course_list, name='course_list'),
-    path('courses/<uuid:pk>', views.course_details, name='course_details'),
+    path('courses/', courses.list, name='course_list'),
+    path('courses/<uuid:pk>', courses.details, name='course_details'),
     path('courses/<uuid:pk>/cycles', views.course_cycles, name='course_cycles'),
     path('courses/<uuid:pk>/<uuid:programme>/<uuid:semester>/enroll', views.course_enrollment, name='course_enrollment'),
     path('courses/<uuid:pk>/<uuid:programme>/<uuid:semester>/teachers', views.course_assignment, name='course_assignment'),
     path('courses/<uuid:pk>/<uuid:programme>/<uuid:semester>/schedule', views.course_schedule, name='course_schedule'),
     
+    path('courses/<uuid:pk>/staff', courses.staff_list, name='assigned_staff'),
+    path('courses/staff/remove/<uuid:pk>', courses.remove_staff, name='remove_staff'),
+    path('courses/<uuid:pk>/students', courses.student_list, name='enrolled_students'),
+    # path('courses/<uuid:pk>/timetable', views.course_details, name='course_details'),
+    # path('courses/<uuid:pk>/materials', views.course_details, name='course_details'),
+    # path('courses/<uuid:pk>/assignments', views.course_details, name='course_details'),
+
+    path('cycles/', course_cycles.list, name='cycles_list'),
+    path('cycles/query', course_cycles.get_cycle, name='cycles_detail'),
+
+    path('cycles/current/<uuid:course>', course_cycles.current, name='cycles_current'),
+
     path('departments/', views.department_list, name='department_list'),
     path('departments/<uuid:pk>', views.department_details, name='department_details'),
 

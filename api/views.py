@@ -1,4 +1,3 @@
-import email
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.parsers import JSONParser
@@ -131,8 +130,17 @@ def faculty_with_departments(request, pk):
 def department_list(request):
     
     if request.method == 'GET':
-        department = Department.objects.all()
-        serializer = DepartmentSerializer(department, many=True)
+
+        #Get All Departments
+        departments = Department.objects.all()
+        
+        #if faculty parameter is set then filter out
+        faculty = request.GET.get('faculty', '')
+        if faculty:
+            # filter by faculty
+            departments = departments.filter(faculty=faculty)
+        
+        serializer = DepartmentSerializer(departments, many=True)
         return JsonResponse(serializer.data, safe=False)
 
     elif request.method == 'POST':
@@ -241,6 +249,12 @@ def semester_list(request):
     
     if request.method == 'GET':
         semesters = Semester.objects.all()
+
+        programme = request.GET.get('programme', '')
+        if programme:
+            # filter by course
+            semesters = semesters.filter(session__programme=programme)
+        
         serializer = SemesterSerializer(semesters, many=True)
         return JsonResponse(serializer.data, safe=False)
 
@@ -605,53 +619,7 @@ def roles_details(request, pk):
         role.delete()
         return HttpResponse(status=204)
     
-
-#######################################################
-#
-# Course
-#
-#######################################################
-@csrf_exempt
-def course_list(request):
-    
-    if request.method == 'GET':
-        course = Course.objects.all()
-        serializer = CourseSerializer(course, many=True)
-        return JsonResponse(serializer.data, safe=False)
-
-    elif request.method == 'POST':
-        data = JSONParser().parse(request)
-
-        serializer = CourseSerializer(data=data)
-
-        if serializer.is_valid():
-            serializer.save()
-            return JsonResponse(serializer.data, status=201)
-        return JsonResponse(serializer.errors, status=400)
-
-@csrf_exempt
-def course_details(request, pk):
-    
-    try:
-        course = Course.objects.get(uuid=pk)
-    except Course.DoesNotExist:
-        return HttpResponse(status=404)
-
-    if request.method == 'GET':
-        serializer = CourseSerializer(course)
-        return JsonResponse(serializer.data)
-
-    elif request.method == 'PUT':
-        data = JSONParser().parse(request)
-        serializer = CourseSerializer(course, data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return JsonResponse(serializer.data)
-        return JsonResponse(serializer.errors, status=400)
-
-    elif request.method == 'DELETE':
-        course.delete()
-        return HttpResponse(status=204)
+# Moved to /endpoints/courses.py
     
 #Added a view to get all the cycles for a course
 @csrf_exempt
@@ -674,12 +642,12 @@ def course_cycles(request, pk):
         schedule = TimeScheduleAssigned.objects.all().filter(course_cycle=course_cycle.uuid)        
         schedule = TimeScheduleAssignedSerializer(schedule, many=True).data
 
-        serializer = CourseCycleSerializer(course_cycle, context={'students': students, 'staff': staff, 'schedules':schedule})
+        serializer = CourseCycleDefaultSerializer(course_cycle, context={'students': students, 'staff': staff, 'schedules':schedule})
         return JsonResponse(serializer.data)
 
     elif request.method == 'PUT':
         data = JSONParser().parse(request)
-        serializer = CourseCycleSerializer(course_cycle, context={'students': [], 'staff': [], 'schedules':[]}, data=data)
+        serializer = CourseCycleDefaultSerializer(course_cycle, context={'students': [], 'staff': [], 'schedules':[]}, data=data)
         if serializer.is_valid():
             serializer.save()
             return JsonResponse(serializer.data)
@@ -711,7 +679,7 @@ def course_enrollment(request, pk, semester, programme):
         student_uuids = [Student.objects.get(uuid=i['student_id']) for i in students.values()]
 
         stdents = StudentDetailsSerializer(student_uuids, many=True).data
-        serializer = CourseCycleSerializer(course_cycle[0], context={'students': stdents, 'staff': [], 'schedules':[]})
+        serializer = CourseCycleDefaultSerializer(course_cycle[0], context={'students': stdents, 'staff': [], 'schedules':[]})
         
         return JsonResponse(serializer.data, safe=False)
 
@@ -770,7 +738,7 @@ def course_assignment(request, pk, semester, programme):
         # fixed typo 'Student' to 'Staff'
         staff_uuids = [Staff.objects.get(uuid=i['staff_id']) for i in staff.values()]
         staff = TeacherAssignedDetailsSerializer(staff, many=True).data
-        serializer = CourseCycleSerializer(course_cycle[0], context={'staff': staff, 'students':[], 'schedules':[]})
+        serializer = CourseCycleDefaultSerializer(course_cycle[0], context={'staff': staff, 'students':[], 'schedules':[]})
         
         return JsonResponse(serializer.data, safe=False)
 
@@ -830,7 +798,7 @@ def course_schedule(request, pk, semester, programme):
     if request.method == 'GET':
         schedule = TimeScheduleAssigned.objects.all().filter(course_cycle=course_cycle[0].uuid)        
         schedule = TimeScheduleAssignedSerializer(schedule, many=True).data
-        serializer = CourseCycleSerializer(course_cycle[0], context={'schedule':schedule, 'staff': [], 'students':[]})
+        serializer = CourseCycleDefaultSerializer(course_cycle[0], context={'schedule':schedule, 'staff': [], 'students':[]})
         
         return JsonResponse(serializer.data, safe=False)
 
